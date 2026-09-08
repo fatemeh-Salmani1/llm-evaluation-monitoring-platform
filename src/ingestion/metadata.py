@@ -48,3 +48,18 @@ def build_document_metadata(
         content_bytes=content_bytes,
         retrieved_at=retrieved_at or datetime.now(UTC),
     )
+
+
+def write_document_metadata(
+    metadata: IngestedDocumentMetadata,
+    output_path: Path,
+) -> Path:
+    """Write document lineage metadata to a JSON file."""
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(
+        f"{metadata.model_dump_json(indent=2)}\n",
+        encoding="utf-8",
+    )
+
+    return output_path

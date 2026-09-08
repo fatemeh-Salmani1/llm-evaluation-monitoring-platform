@@ -54,7 +54,27 @@ def test_ingest_sources_downloads_only_enabled_sources(
         )
 
     assert requested_paths == ["/enabled.md"]
+
     assert downloaded_paths == [
         output_directory / "enabled-guide.md"
     ]
-    assert not (output_directory / "disabled-guide.md").exists()
+
+    assert not (
+        output_directory / "disabled-guide.md"
+    ).exists()
+
+    metadata_path = (
+        output_directory / "enabled-guide.metadata.json"
+    )
+    saved_metadata = json.loads(
+        metadata_path.read_text(encoding="utf-8")
+    )
+
+    assert metadata_path.exists()
+    assert saved_metadata["source_id"] == "enabled-guide"
+    assert saved_metadata["content_bytes"] > 0
+    assert len(saved_metadata["content_sha256"]) == 64
+
+    assert not (
+        output_directory / "disabled-guide.metadata.json"
+    ).exists()

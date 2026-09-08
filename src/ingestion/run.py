@@ -5,6 +5,10 @@ from pathlib import Path
 import httpx
 
 from src.ingestion.downloader import download_document
+from src.ingestion.metadata import (
+    build_document_metadata,
+    write_document_metadata,
+)
 from src.ingestion.source_loader import load_document_sources
 
 LOGGER = logging.getLogger(__name__)
@@ -31,6 +35,17 @@ def ingest_sources(
             source=source,
             output_directory=output_directory,
             client=client,
+        )
+        metadata = build_document_metadata(
+            source=source,
+            document_path=output_path,
+        )
+        metadata_path = (
+            output_directory / f"{source.source_id}.metadata.json"
+        )
+        write_document_metadata(
+            metadata=metadata,
+            output_path=metadata_path,
         )
         downloaded_paths.append(output_path)
 

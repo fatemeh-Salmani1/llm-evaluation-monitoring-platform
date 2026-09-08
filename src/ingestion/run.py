@@ -4,6 +4,7 @@ from pathlib import Path
 
 import httpx
 
+from src.ingestion.cleaner import clean_markdown
 from src.ingestion.downloader import download_document
 from src.ingestion.metadata import (
     build_document_metadata,
@@ -14,47 +15,66 @@ from src.ingestion.source_loader import load_document_sources
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_MANIFEST = Path("data/sources/openai_docs.json")
-DEFAULT_OUTPUT_DIRECTORY = Path("data/raw/openai_docs")
+DEFAULT_RAW_DIRECTORY = Path("data/raw/openai_docs")
+DEFAULT_PROCESSED_DIRECTORY = Path("data/processed/openai_docs")
 
 
 def ingest_sources(
     manifest_path: Path,
-    output_directory: Path,
+    raw_output_directory: Path,
+    processed_output_directory: Path,
     client: httpx.Client,
 ) -> list[Path]:
-    """Download every enabled source from a validated manifest."""
+    """Download, document and clean every enabled source."""
 
     sources = load_document_sources(manifest_path)
-    downloaded_paths: list[Path] = []
+    processed_paths: list[Path] = []
 
     for source in sources:
         if not source.enabled:
             continue
 
-        output_path = download_document(
+        raw_path = download_document(
             source=source,
-            output_directory=output_directory,
+            output_directory=raw_output_directory,
             client=client,
         )
+
         metadata = build_document_metadata(
             source=source,
-            document_path=output_path,
+            document_path=raw_path,
         )
         metadata_path = (
-            output_directory / f"{source.source_id}.metadata.json"
+            raw_output_directory
+            / f"{source.source_id}.metadata.json"
         )
         write_document_metadata(
             metadata=metadata,
             output_path=metadata_path,
         )
-        downloaded_paths.append(output_path)
 
-    return downloaded_paths
+        raw_content = raw_path.read_text(encoding="utf-8")
+        cleaned_content = clean_markdown(raw_content)
+
+        processed_output_directory.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
+        processed_path = (
+            processed_output_directory / f"{source.source_id}.md"
+        )
+        processed_path.write_text(
+            cleaned_content,
+            encoding="utf-8",
+        )
+        processed_paths.append(processed_path)
+
+    return processed_paths
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Download documents for the RAG knowledge base."
+        description="Ingest documents for the RAG knowledge base."
     )
     parser.add_argument(
         "--manifest",
@@ -63,10 +83,16 @@ def parse_arguments() -> argparse.Namespace:
         help="Path to the document-source manifest.",
     )
     parser.add_argument(
-        "--output-directory",
+        "--raw-output-directory",
         type=Path,
-        default=DEFAULT_OUTPUT_DIRECTORY,
-        help="Directory where downloaded documents will be stored.",
+        default=DEFAULT_RAW_DIRECTORY,
+        help="Directory for original downloaded documents.",
+    )
+    parser.add_argument(
+        "--processed-output-directory",
+        type=Path,
+        default=DEFAULT_PROCESSED_DIRECTORY,
+        help="Directory for cleaned documents.",
     )
 
     return parser.parse_args()
@@ -86,16 +112,19 @@ def main() -> None:
             "User-Agent": "llm-evaluation-monitoring-platform/0.1"
         },
     ) as client:
-        downloaded_paths = ingest_sources(
+        processed_paths = ingest_sources(
             manifest_path=arguments.manifest,
-            output_directory=arguments.output_directory,
+            raw_output_directory=arguments.raw_output_directory,
+            processed_output_directory=(
+                arguments.processed_output_directory
+            ),
             client=client,
         )
 
-    for path in downloaded_paths:
-        LOGGER.info("Downloaded %s", path)
+    for path in processed_paths:
+        LOGGER.info("Prepared %s", path)
 
-    LOGGER.info("Downloaded %d document(s)", len(downloaded_paths))
+    LOGGER.info("Ingested %d document(s)", len(processed_paths))
 
 
 if __name__ == "__main__":

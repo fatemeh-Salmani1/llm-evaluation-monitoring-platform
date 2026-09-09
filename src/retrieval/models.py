@@ -13,3 +13,4 @@ class DocumentChunk(BaseModel):
     position: int = Field(ge=0)
     heading_path: list[str] = Field(min_length=1)
     content: str = Field(min_length=1)
+    token_count: int = Field(gt=0)

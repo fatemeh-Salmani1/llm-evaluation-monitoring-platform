@@ -74,3 +74,40 @@ def test_chunk_markdown_rejects_empty_content() -> None:
             source_id="openai-evals-guide",
             content="   \n\n",
         )
+
+
+def test_chunk_markdown_splits_oversized_sections() -> None:
+    content = "# Guide\n\n" + ("Evaluation guidance. " * 200)
+
+    chunks = chunk_markdown(
+        source_id="openai-evals-guide",
+        content=content,
+        max_tokens=50,
+        overlap_tokens=10,
+    )
+
+    assert len(chunks) > 1
+    assert all(chunk.token_count <= 50 for chunk in chunks)
+    assert [chunk.position for chunk in chunks] == list(
+        range(len(chunks))
+    )
+
+
+@pytest.mark.parametrize(
+    ("max_tokens", "overlap_tokens"),
+    [
+        (0, 0),
+        (50, 50),
+    ],
+)
+def test_chunk_markdown_rejects_invalid_token_settings(
+    max_tokens: int,
+    overlap_tokens: int,
+) -> None:
+    with pytest.raises(ValueError):
+        chunk_markdown(
+            source_id="openai-evals-guide",
+            content="# Guide\n\nEvaluation guidance.",
+            max_tokens=max_tokens,
+            overlap_tokens=overlap_tokens,
+        )

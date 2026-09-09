@@ -9,34 +9,50 @@ from src.evaluation.models import (
 
 
 def create_valid_case() -> BenchmarkCase:
+    """Create a valid benchmark case for model tests."""
+
     return BenchmarkCase(
-        case_id="de-0001",
-        question="What is the purpose of a primary key in a database?",
+        case_id="eval-0001",
+        question="What are the two key ingredients of an eval?",
         reference_answer=(
-            "A primary key uniquely identifies each row in a database table."
+            "An eval needs a data source configuration "
+            "and testing criteria."
         ),
-        category=EvaluationCategory.SQL,
+        category=EvaluationCategory.EVAL_CONCEPTS,
         difficulty=Difficulty.EASY,
         required_facts=[
-            "A primary key uniquely identifies each row.",
-            "Primary-key values cannot be null.",
+            "An eval needs data_source_config.",
+            "An eval needs testing_criteria.",
         ],
-        expected_source_ids=["database-keys"],
-        tags=["sql", "database", "primary-key"],
+        expected_source_ids=["openai-evals-guide"],
+        expected_chunk_ids=[
+            "openai-evals-guide-chunk-0004"
+        ],
+        tags=[
+            "evals",
+            "configuration",
+            "graders",
+        ],
     )
 
 
 def test_benchmark_case_accepts_valid_data() -> None:
     case = create_valid_case()
 
-    assert case.case_id == "de-0001"
-    assert case.category == EvaluationCategory.SQL
+    assert case.case_id == "eval-0001"
+    assert case.category == EvaluationCategory.EVAL_CONCEPTS
     assert len(case.required_facts) == 2
+    assert case.expected_source_ids == [
+        "openai-evals-guide"
+    ]
+    assert case.expected_chunk_ids == [
+        "openai-evals-guide-chunk-0004"
+    ]
 
 
 def test_benchmark_case_rejects_invalid_case_id() -> None:
     valid_data = create_valid_case().model_dump()
-    valid_data["case_id"] = "invalid"
+    valid_data["case_id"] = "de-0001"
 
     with pytest.raises(ValidationError):
         BenchmarkCase.model_validate(valid_data)
@@ -45,12 +61,13 @@ def test_benchmark_case_rejects_invalid_case_id() -> None:
 def test_benchmark_case_requires_at_least_one_fact() -> None:
     with pytest.raises(ValidationError):
         BenchmarkCase(
-            case_id="de-0002",
-            question="How can duplicate records affect analytical results?",
+            case_id="eval-0002",
+            question="Why are graders required when running evaluations?",
             reference_answer=(
-                "Duplicate records can inflate aggregations and distort metrics."
+                "Graders determine whether a model output "
+                "satisfies the evaluation criteria."
             ),
-            category=EvaluationCategory.DATA_QUALITY,
+            category=EvaluationCategory.GRADERS,
             difficulty=Difficulty.EASY,
             required_facts=[],
         )
@@ -59,6 +76,7 @@ def test_benchmark_case_requires_at_least_one_fact() -> None:
 def test_benchmark_case_serializes_to_json() -> None:
     serialized = create_valid_case().model_dump_json()
 
-    assert '"case_id":"de-0001"' in serialized
-    assert '"category":"sql"' in serialized
+    assert '"case_id":"eval-0001"' in serialized
+    assert '"category":"eval_concepts"' in serialized
     assert '"difficulty":"easy"' in serialized
+    assert '"expected_chunk_ids":' in serialized

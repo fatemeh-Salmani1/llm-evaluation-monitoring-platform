@@ -6,68 +6,118 @@ import pytest
 from src.evaluation.loader import load_benchmark
 
 
-def valid_record(case_id: str = "de-0001") -> dict:
+def valid_record(
+    case_id: str = "eval-0001",
+) -> dict[str, object]:
+    """Create a valid benchmark record for loader tests."""
+
     return {
         "case_id": case_id,
-        "question": "What is the purpose of a primary key?",
-        "reference_answer": (
-            "A primary key uniquely identifies each row in a table."
+        "question": (
+            "What are the two key ingredients of an eval?"
         ),
-        "category": "sql",
+        "reference_answer": (
+            "An eval needs a data source configuration "
+            "and testing criteria."
+        ),
+        "category": "eval_concepts",
         "difficulty": "easy",
         "required_facts": [
-            "A primary key uniquely identifies each row.",
+            "An eval needs data_source_config.",
+            "An eval needs testing_criteria.",
         ],
-        "expected_source_ids": ["database-keys"],
-        "tags": ["sql", "primary-key"],
+        "expected_source_ids": [
+            "openai-evals-guide"
+        ],
+        "expected_chunk_ids": [
+            "openai-evals-guide-chunk-0004"
+        ],
+        "tags": [
+            "evals",
+            "configuration",
+            "graders",
+        ],
     }
 
 
-def write_jsonl(path: Path, records: list[dict]) -> None:
-    content = "\n".join(json.dumps(record) for record in records)
-    path.write_text(content, encoding="utf-8")
+def write_jsonl(
+    path: Path,
+    records: list[dict[str, object]],
+) -> None:
+    """Write benchmark records as JSONL."""
+
+    content = "\n".join(
+        json.dumps(record)
+        for record in records
+    )
+    path.write_text(
+        content + "\n",
+        encoding="utf-8",
+    )
 
 
-def test_load_benchmark_returns_validated_cases(tmp_path: Path) -> None:
+def test_load_benchmark_returns_validated_cases(
+    tmp_path: Path,
+) -> None:
     benchmark_path = tmp_path / "benchmark.jsonl"
+
     write_jsonl(
         benchmark_path,
         [
-            valid_record("de-0001"),
-            valid_record("de-0002"),
+            valid_record("eval-0001"),
+            valid_record("eval-0002"),
         ],
     )
 
     cases = load_benchmark(benchmark_path)
 
     assert len(cases) == 2
-    assert cases[0].case_id == "de-0001"
-    assert cases[1].case_id == "de-0002"
+    assert cases[0].case_id == "eval-0001"
+    assert cases[1].case_id == "eval-0002"
+    assert cases[0].expected_chunk_ids == [
+        "openai-evals-guide-chunk-0004"
+    ]
 
 
-def test_load_benchmark_rejects_invalid_json(tmp_path: Path) -> None:
+def test_load_benchmark_rejects_invalid_json(
+    tmp_path: Path,
+) -> None:
     benchmark_path = tmp_path / "benchmark.jsonl"
-    benchmark_path.write_text("{invalid-json}", encoding="utf-8")
+    benchmark_path.write_text(
+        "{invalid-json}\n",
+        encoding="utf-8",
+    )
 
-    with pytest.raises(ValueError, match="line 1"):
+    with pytest.raises(
+        ValueError,
+        match="line 1",
+    ):
         load_benchmark(benchmark_path)
 
 
-def test_load_benchmark_rejects_duplicate_ids(tmp_path: Path) -> None:
+def test_load_benchmark_rejects_duplicate_ids(
+    tmp_path: Path,
+) -> None:
     benchmark_path = tmp_path / "benchmark.jsonl"
+
     write_jsonl(
         benchmark_path,
         [
-            valid_record("de-0001"),
-            valid_record("de-0001"),
+            valid_record("eval-0001"),
+            valid_record("eval-0001"),
         ],
     )
 
-    with pytest.raises(ValueError, match="Duplicate case_id"):
+    with pytest.raises(
+        ValueError,
+        match="Duplicate case_id",
+    ):
         load_benchmark(benchmark_path)
 
 
-def test_load_benchmark_rejects_missing_file(tmp_path: Path) -> None:
+def test_load_benchmark_rejects_missing_file(
+    tmp_path: Path,
+) -> None:
     benchmark_path = tmp_path / "missing.jsonl"
 
     with pytest.raises(FileNotFoundError):

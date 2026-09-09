@@ -11,21 +11,25 @@ from src.ingestion.metadata import (
     write_document_metadata,
 )
 from src.ingestion.source_loader import load_document_sources
+from src.retrieval.chunker import chunk_markdown
+from src.retrieval.storage import write_chunks_jsonl
 
 LOGGER = logging.getLogger(__name__)
 
 DEFAULT_MANIFEST = Path("data/sources/openai_docs.json")
 DEFAULT_RAW_DIRECTORY = Path("data/raw/openai_docs")
 DEFAULT_PROCESSED_DIRECTORY = Path("data/processed/openai_docs")
+DEFAULT_CHUNKS_DIRECTORY = Path("data/processed/chunks")
 
 
 def ingest_sources(
     manifest_path: Path,
     raw_output_directory: Path,
     processed_output_directory: Path,
+    chunks_output_directory: Path,
     client: httpx.Client,
 ) -> list[Path]:
-    """Download, document and clean every enabled source."""
+    """Download, document, clean and chunk every enabled source."""
 
     sources = load_document_sources(manifest_path)
     processed_paths: list[Path] = []
@@ -67,6 +71,19 @@ def ingest_sources(
             cleaned_content,
             encoding="utf-8",
         )
+
+        chunks = chunk_markdown(
+            source_id=source.source_id,
+            content=cleaned_content,
+        )
+        chunks_path = (
+            chunks_output_directory / f"{source.source_id}.jsonl"
+        )
+        write_chunks_jsonl(
+            chunks=chunks,
+            output_path=chunks_path,
+        )
+
         processed_paths.append(processed_path)
 
     return processed_paths
@@ -94,6 +111,12 @@ def parse_arguments() -> argparse.Namespace:
         default=DEFAULT_PROCESSED_DIRECTORY,
         help="Directory for cleaned documents.",
     )
+    parser.add_argument(
+        "--chunks-output-directory",
+        type=Path,
+        default=DEFAULT_CHUNKS_DIRECTORY,
+        help="Directory for prepared document chunks.",
+    )
 
     return parser.parse_args()
 
@@ -117,6 +140,9 @@ def main() -> None:
             raw_output_directory=arguments.raw_output_directory,
             processed_output_directory=(
                 arguments.processed_output_directory
+            ),
+            chunks_output_directory=(
+                arguments.chunks_output_directory
             ),
             client=client,
         )

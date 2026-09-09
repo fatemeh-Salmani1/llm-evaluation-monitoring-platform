@@ -4,6 +4,7 @@ from pathlib import Path
 import httpx
 
 from src.ingestion.run import ingest_sources
+from src.retrieval.storage import load_chunks_jsonl
 
 
 def test_ingest_sources_processes_only_enabled_sources(
@@ -12,6 +13,7 @@ def test_ingest_sources_processes_only_enabled_sources(
     manifest_path = tmp_path / "sources.json"
     raw_directory = tmp_path / "raw"
     processed_directory = tmp_path / "processed"
+    chunks_directory = tmp_path / "chunks"
 
     manifest_path.write_text(
         json.dumps(
@@ -57,6 +59,7 @@ def test_ingest_sources_processes_only_enabled_sources(
             manifest_path=manifest_path,
             raw_output_directory=raw_directory,
             processed_output_directory=processed_directory,
+            chunks_output_directory=chunks_directory,
             client=client,
         )
 
@@ -65,6 +68,7 @@ def test_ingest_sources_processes_only_enabled_sources(
         raw_directory / "enabled-guide.metadata.json"
     )
     processed_path = processed_directory / "enabled-guide.md"
+    chunks_path = chunks_directory / "enabled-guide.jsonl"
 
     assert requested_paths == ["/enabled.md"]
     assert processed_paths == [processed_path]
@@ -72,6 +76,7 @@ def test_ingest_sources_processes_only_enabled_sources(
     assert raw_path.exists()
     assert metadata_path.exists()
     assert processed_path.exists()
+    assert chunks_path.exists()
 
     raw_content = raw_path.read_text(encoding="utf-8")
     processed_content = processed_path.read_text(encoding="utf-8")
@@ -88,7 +93,17 @@ def test_ingest_sources_processes_only_enabled_sources(
     assert saved_metadata["content_bytes"] > 0
     assert len(saved_metadata["content_sha256"]) == 64
 
+    chunks = load_chunks_jsonl(chunks_path)
+
+    assert len(chunks) == 1
+    assert chunks[0].source_id == "enabled-guide"
+    assert chunks[0].chunk_id == "enabled-guide-chunk-0000"
+    assert chunks[0].token_count <= 500
+
     assert not (raw_directory / "disabled-guide.md").exists()
     assert not (
         processed_directory / "disabled-guide.md"
+    ).exists()
+    assert not (
+        chunks_directory / "disabled-guide.jsonl"
     ).exists()

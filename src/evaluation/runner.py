@@ -7,6 +7,11 @@ from uuid import uuid4
 from openai import OpenAI, OpenAIError
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.evaluation.judge import (
+    DEFAULT_JUDGE_MODEL,
+    JudgeResult,
+    judge_answer,
+)
 from src.evaluation.metrics import (
     DeterministicEvaluationResult,
     evaluate_deterministically,
@@ -50,10 +55,12 @@ class EvaluationRunRecord(BaseModel):
     difficulty: Difficulty
     embedding_model: str
     generation_model: str
+    judge_model: str | None = None
     retrieved_chunk_ids: list[str]
     retrieval_scores: list[float]
     answer: str | None = None
     metrics: DeterministicEvaluationResult | None = None
+    judge_result: JudgeResult | None = None
     error_message: str | None = None
 
 
@@ -67,6 +74,8 @@ def run_evaluation_case(
     generation_model: str = DEFAULT_GENERATION_MODEL,
     top_k: int = DEFAULT_TOP_K,
     max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+    enable_llm_judge: bool = False,
+    judge_model: str = DEFAULT_JUDGE_MODEL,
 ) -> EvaluationRunRecord:
     """Run retrieval, generation, and scoring for one case."""
 
@@ -109,6 +118,20 @@ def run_evaluation_case(
             retrieved_chunk_ids=retrieved_chunk_ids,
         )
 
+        judge_result = None
+
+        if enable_llm_judge:
+            judge_result = judge_answer(
+                case=case,
+                answer=grounded_answer.answer,
+                retrieved_chunks=[
+                    result.chunk
+                    for result in retrieved_chunks
+                ],
+                client=client,
+                model=judge_model,
+            )
+
         duration_ms = (
             perf_counter() - start_time
         ) * 1000
@@ -124,10 +147,16 @@ def run_evaluation_case(
             difficulty=case.difficulty,
             embedding_model=embedding_model,
             generation_model=generation_model,
+            judge_model=(
+                judge_model
+                if enable_llm_judge
+                else None
+            ),
             retrieved_chunk_ids=retrieved_chunk_ids,
             retrieval_scores=retrieval_scores,
             answer=grounded_answer.answer,
             metrics=metrics,
+            judge_result=judge_result,
         )
 
     except (
@@ -151,6 +180,11 @@ def run_evaluation_case(
             difficulty=case.difficulty,
             embedding_model=embedding_model,
             generation_model=generation_model,
+            judge_model=(
+                judge_model
+                if enable_llm_judge
+                else None
+            ),
             retrieved_chunk_ids=retrieved_chunk_ids,
             retrieval_scores=retrieval_scores,
             error_message=str(error),

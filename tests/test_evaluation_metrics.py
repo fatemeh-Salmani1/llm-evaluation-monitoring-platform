@@ -192,7 +192,6 @@ def test_fact_coverage_accepts_paraphrased_wording() -> None:
     assert missing_facts == []
 
 
-
 def test_fact_coverage_recognizes_equivalent_terms() -> None:
     coverage, matched_facts, missing_facts = (
         calculate_fact_coverage(
@@ -210,4 +209,27 @@ def test_fact_coverage_recognizes_equivalent_terms() -> None:
     assert matched_facts == [
         "assessed against testing criteria"
     ]
+    assert missing_facts == []
+
+
+def test_fact_coverage_recognizes_domain_equivalents() -> None:
+    required_facts = [
+        "data supplied when the eval runs",
+        "determines whether requirements are satisfied",
+    ]
+    answer = (
+        "The test data is used by the eval. "
+        "The grader determines whether the output "
+        "is correct."
+    )
+
+    coverage, matched_facts, missing_facts = (
+        calculate_fact_coverage(
+            required_facts=required_facts,
+            answer=answer,
+        )
+    )
+
+    assert coverage == pytest.approx(1.0)
+    assert matched_facts == required_facts
     assert missing_facts == []

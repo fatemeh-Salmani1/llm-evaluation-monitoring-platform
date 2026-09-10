@@ -46,6 +46,10 @@ TOKEN_EQUIVALENTS = {
     "evaluated": "assess",
     "evaluating": "assess",
     "testing": "test",
+    "correct": "satisfy",
+    "satisfied": "satisfy",
+    "supplied": "use",
+    "used": "use",
 }
 
 

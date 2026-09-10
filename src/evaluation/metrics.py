@@ -39,6 +39,14 @@ FACT_STOP_WORDS = frozenset(
         "against",
     }
 )
+TOKEN_EQUIVALENTS = {
+    "assessed": "assess",
+    "assessing": "assess",
+    "evaluate": "assess",
+    "evaluated": "assess",
+    "evaluating": "assess",
+    "testing": "test",
+}
 
 
 class DeterministicEvaluationResult(BaseModel):
@@ -71,19 +79,25 @@ def normalize_text(text: str) -> str:
 
 
 def canonicalize_token(token: str) -> str:
-    """Normalize simple English plural forms."""
+    """Normalize simple word forms and explicit equivalents."""
 
-    if len(token) > 4 and token.endswith("ies"):
-        return f"{token[:-3]}y"
+    canonical_token = token
 
-    if (
-        len(token) > 3
-        and token.endswith("s")
-        and not token.endswith(("ss", "us", "is"))
+    if len(canonical_token) > 4 and canonical_token.endswith("ies"):
+        canonical_token = f"{canonical_token[:-3]}y"
+    elif (
+        len(canonical_token) > 3
+        and canonical_token.endswith("s")
+        and not canonical_token.endswith(
+            ("ss", "us", "is")
+        )
     ):
-        return token[:-1]
+        canonical_token = canonical_token[:-1]
 
-    return token
+    return TOKEN_EQUIVALENTS.get(
+        canonical_token,
+        canonical_token,
+    )
 
 
 def extract_fact_tokens(text: str) -> set[str]:

@@ -19,7 +19,7 @@ DEFAULT_CHUNKS_PATH = Path(
 DEFAULT_EMBEDDINGS_PATH = Path(
     "data/processed/embeddings/openai-evals-guide.jsonl"
 )
-DEFAULT_TOP_K = 3
+DEFAULT_TOP_K = 4
 DEFAULT_PREVIEW_CHARACTERS = 500
 
 

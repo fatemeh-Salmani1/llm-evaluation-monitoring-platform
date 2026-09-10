@@ -190,3 +190,24 @@ def test_fact_coverage_accepts_paraphrased_wording() -> None:
     assert coverage == pytest.approx(1.0)
     assert matched_facts == required_facts
     assert missing_facts == []
+
+
+
+def test_fact_coverage_recognizes_equivalent_terms() -> None:
+    coverage, matched_facts, missing_facts = (
+        calculate_fact_coverage(
+            required_facts=[
+                "assessed against testing criteria"
+            ],
+            answer=(
+                "The model responses are evaluated "
+                "against the test criteria."
+            ),
+        )
+    )
+
+    assert coverage == pytest.approx(1.0)
+    assert matched_facts == [
+        "assessed against testing criteria"
+    ]
+    assert missing_facts == []

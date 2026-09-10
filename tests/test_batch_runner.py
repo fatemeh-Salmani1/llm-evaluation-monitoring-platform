@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import pytest
 
 from src.evaluation.batch_runner import run_benchmark
+from src.evaluation.judge import JudgeScores
 from src.evaluation.models import (
     BenchmarkCase,
     Difficulty,
@@ -44,7 +45,8 @@ class FakeResponses:
         fail_on_call: int | None = None,
     ) -> None:
         self.fail_on_call = fail_on_call
-        self.call_count = 0
+        self.create_call_count = 0
+        self.parse_call_count = 0
 
     def create(
         self,
@@ -54,9 +56,9 @@ class FakeResponses:
         input: str,
         max_output_tokens: int,
     ) -> SimpleNamespace:
-        self.call_count += 1
+        self.create_call_count += 1
 
-        if self.call_count == self.fail_on_call:
+        if self.create_call_count == self.fail_on_call:
             raise RuntimeError(
                 "Simulated generation failure"
             )
@@ -66,6 +68,28 @@ class FakeResponses:
                 "An eval needs `data_source_config` and "
                 "`testing_criteria` "
                 "[openai-evals-guide-chunk-0004]."
+            )
+        )
+
+    def parse(
+        self,
+        *,
+        model: str,
+        input: list[dict[str, str]],
+        text_format: type[JudgeScores],
+    ) -> SimpleNamespace:
+        self.parse_call_count += 1
+
+        return SimpleNamespace(
+            output_parsed=JudgeScores(
+                relevance=5,
+                completeness=4,
+                groundedness=5,
+                clarity=4,
+                reasoning=(
+                    "The answer is relevant, grounded, "
+                    "and mostly complete."
+                ),
             )
         )
 
@@ -118,6 +142,7 @@ def prepare_retrieval_files(
 
     chunks_path = tmp_path / "chunks.jsonl"
     embeddings_path = tmp_path / "embeddings.jsonl"
+
     chunk = DocumentChunk(
         chunk_id="openai-evals-guide-chunk-0004",
         source_id="openai-evals-guide",
@@ -132,6 +157,7 @@ def prepare_retrieval_files(
         ),
         token_count=10,
     )
+
     embedding = ChunkEmbedding(
         chunk_id=chunk.chunk_id,
         source_id=chunk.source_id,
@@ -188,6 +214,8 @@ def test_run_benchmark_saves_records_and_summary(
     assert result.summary.average_overall_score == (
         pytest.approx(1.0)
     )
+    assert result.summary.average_judge_score is None
+    assert result.summary.judge_model is None
     assert result.summary.failed_case_ids == [
         "eval-0002"
     ]
@@ -206,6 +234,98 @@ def test_run_benchmark_saves_records_and_summary(
     assert len(record_lines) == 2
     assert stored_summary["run_id"] == "test-run-001"
     assert stored_summary["total_cases"] == 2
+    assert stored_summary["average_judge_score"] is None
+    assert stored_summary["judge_model"] is None
+
+
+def test_run_benchmark_aggregates_llm_judge_scores(
+    tmp_path: Path,
+) -> None:
+    chunks_path, embeddings_path = (
+        prepare_retrieval_files(tmp_path)
+    )
+    client = FakeOpenAI()
+
+    result = run_benchmark(
+        cases=[
+            create_case("eval-0001"),
+            create_case("eval-0002"),
+        ],
+        chunks_path=chunks_path,
+        embeddings_path=embeddings_path,
+        output_directory=tmp_path / "evaluation-runs",
+        client=client,
+        run_id="test-run-with-judge",
+        top_k=1,
+        enable_llm_judge=True,
+        judge_model="judge-model",
+    )
+
+    assert result.summary.successful_cases == 2
+    assert result.summary.failed_cases == 0
+    assert result.summary.judge_model == "judge-model"
+    assert result.summary.average_judge_score == (
+        pytest.approx(0.875)
+    )
+    assert all(
+        record.judge_result is not None
+        for record in result.records
+    )
+    assert client.responses.create_call_count == 2
+    assert client.responses.parse_call_count == 2
+
+    stored_summary = json.loads(
+        result.summary_path.read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert stored_summary["judge_model"] == "judge-model"
+    assert stored_summary["average_judge_score"] == (
+        pytest.approx(0.875)
+    )
+
+
+def test_run_benchmark_skips_llm_judge_by_default(
+    tmp_path: Path,
+) -> None:
+    chunks_path, embeddings_path = (
+        prepare_retrieval_files(tmp_path)
+    )
+    client = FakeOpenAI()
+
+    result = run_benchmark(
+        cases=[create_case("eval-0001")],
+        chunks_path=chunks_path,
+        embeddings_path=embeddings_path,
+        output_directory=tmp_path / "evaluation-runs",
+        client=client,
+        run_id="test-run-without-judge",
+        top_k=1,
+    )
+
+    assert result.summary.average_judge_score is None
+    assert result.summary.judge_model is None
+    assert result.records[0].judge_result is None
+    assert client.responses.parse_call_count == 0
+
+
+def test_run_benchmark_rejects_empty_judge_model(
+    tmp_path: Path,
+) -> None:
+    with pytest.raises(
+        ValueError,
+        match="Judge model cannot be empty",
+    ):
+        run_benchmark(
+            cases=[create_case("eval-0001")],
+            chunks_path=tmp_path / "chunks.jsonl",
+            embeddings_path=tmp_path / "embeddings.jsonl",
+            output_directory=tmp_path / "runs",
+            client=FakeOpenAI(),
+            enable_llm_judge=True,
+            judge_model=" ",
+        )
 
 
 def test_run_benchmark_rejects_empty_cases(

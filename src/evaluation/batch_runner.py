@@ -7,6 +7,7 @@ from uuid import uuid4
 from openai import OpenAI
 from pydantic import BaseModel, ConfigDict, Field
 
+from src.evaluation.judge import DEFAULT_JUDGE_MODEL
 from src.evaluation.models import BenchmarkCase
 from src.evaluation.runner import (
     EvaluationRunRecord,
@@ -20,7 +21,9 @@ from src.generation.answerer import (
 from src.retrieval.embedder import DEFAULT_EMBEDDING_MODEL
 from src.retrieval.run_retrieval import DEFAULT_TOP_K
 
-RUN_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+RUN_ID_PATTERN = re.compile(
+    r"^[A-Za-z0-9][A-Za-z0-9._-]*$"
+)
 
 
 class BatchEvaluationSummary(BaseModel):
@@ -52,9 +55,15 @@ class BatchEvaluationSummary(BaseModel):
         ge=0.0,
         le=1.0,
     )
+    average_judge_score: float | None = Field(
+        default=None,
+        ge=0.0,
+        le=1.0,
+    )
     failed_case_ids: list[str]
     embedding_model: str
     generation_model: str
+    judge_model: str | None = None
     top_k: int = Field(ge=1)
 
 
@@ -101,6 +110,8 @@ def run_benchmark(
     generation_model: str = DEFAULT_GENERATION_MODEL,
     top_k: int = DEFAULT_TOP_K,
     max_output_tokens: int = DEFAULT_MAX_OUTPUT_TOKENS,
+    enable_llm_judge: bool = False,
+    judge_model: str = DEFAULT_JUDGE_MODEL,
 ) -> BatchEvaluationResult:
     """Execute, summarize, and store a complete benchmark run."""
 
@@ -124,7 +135,14 @@ def run_benchmark(
         )
 
     if top_k < 1:
-        raise ValueError("top_k must be greater than zero")
+        raise ValueError(
+            "top_k must be greater than zero"
+        )
+
+    if enable_llm_judge and not judge_model.strip():
+        raise ValueError(
+            "Judge model cannot be empty when judging is enabled"
+        )
 
     started_at = datetime.now(UTC)
 
@@ -139,26 +157,47 @@ def run_benchmark(
             generation_model=generation_model,
             top_k=top_k,
             max_output_tokens=max_output_tokens,
+            enable_llm_judge=enable_llm_judge,
+            judge_model=judge_model,
         )
         for case in cases
     ]
 
     completed_at = datetime.now(UTC)
+
     successful_records = [
         record
         for record in records
         if record.status == EvaluationStatus.SUCCESS
     ]
+
     failed_records = [
         record
         for record in records
         if record.status == EvaluationStatus.FAILED
     ]
+
     successful_metrics = [
         record.metrics
         for record in successful_records
         if record.metrics is not None
     ]
+
+    successful_judge_results = [
+        record.judge_result
+        for record in successful_records
+        if record.judge_result is not None
+    ]
+
+    average_judge_score = None
+
+    if enable_llm_judge:
+        average_judge_score = calculate_average(
+            [
+                result.overall_score
+                for result in successful_judge_results
+            ]
+        )
 
     summary = BatchEvaluationSummary(
         run_id=resolved_run_id,
@@ -200,12 +239,18 @@ def run_benchmark(
                 for metrics in successful_metrics
             ]
         ),
+        average_judge_score=average_judge_score,
         failed_case_ids=[
             record.case_id
             for record in failed_records
         ],
         embedding_model=embedding_model,
         generation_model=generation_model,
+        judge_model=(
+            judge_model
+            if enable_llm_judge
+            else None
+        ),
         top_k=top_k,
     )
 
@@ -231,6 +276,7 @@ def run_benchmark(
         + "\n",
         encoding="utf-8",
     )
+
     summary_path.write_text(
         summary.model_dump_json(indent=2) + "\n",
         encoding="utf-8",

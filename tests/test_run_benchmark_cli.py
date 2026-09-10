@@ -13,6 +13,7 @@ from src.evaluation.models import (
     EvaluationCategory,
 )
 from src.evaluation.run_benchmark import (
+    build_argument_parser,
     format_batch_result,
     format_batch_summary,
     select_benchmark_cases,
@@ -45,7 +46,10 @@ def create_case(
     )
 
 
-def create_summary() -> BatchEvaluationSummary:
+def create_summary(
+    *,
+    include_judge: bool = False,
+) -> BatchEvaluationSummary:
     """Create a batch summary for formatting tests."""
 
     started_at = datetime(
@@ -78,9 +82,19 @@ def create_summary() -> BatchEvaluationSummary:
         average_fact_coverage=0.75,
         average_citation_validity=1.0,
         average_overall_score=0.9375,
+        average_judge_score=(
+            0.875
+            if include_judge
+            else None
+        ),
         failed_case_ids=["eval-0002"],
         embedding_model="text-embedding-3-small",
         generation_model="gpt-5.6-luna",
+        judge_model=(
+            "judge-model"
+            if include_judge
+            else None
+        ),
         top_k=3,
     )
 
@@ -139,7 +153,18 @@ def test_format_batch_summary_includes_metrics() -> None:
     assert "Average retrieval recall: 1.0000" in formatted
     assert "Average fact coverage: 0.7500" in formatted
     assert "Average overall score: 0.9375" in formatted
+    assert "Average LLM judge score" not in formatted
+    assert "Judge model" not in formatted
     assert "Failed case IDs: eval-0002" in formatted
+
+
+def test_format_batch_summary_includes_judge_metrics() -> None:
+    formatted = format_batch_summary(
+        create_summary(include_judge=True)
+    )
+
+    assert "Average LLM judge score: 0.8750" in formatted
+    assert "Judge model: judge-model" in formatted
 
 
 def test_format_batch_result_includes_output_paths() -> None:
@@ -162,3 +187,25 @@ def test_format_batch_result_includes_output_paths() -> None:
     assert "test-run-001.jsonl" in formatted
     assert "Summary: data/processed/evaluation_runs/" in formatted
     assert "test-run-001.summary.json" in formatted
+
+
+def test_argument_parser_enables_llm_judge() -> None:
+    arguments = build_argument_parser().parse_args(
+        [
+            "--enable-llm-judge",
+            "--judge-model",
+            "judge-model",
+            "--limit",
+            "1",
+        ]
+    )
+
+    assert arguments.enable_llm_judge is True
+    assert arguments.judge_model == "judge-model"
+    assert arguments.limit == 1
+
+
+def test_argument_parser_disables_llm_judge_by_default() -> None:
+    arguments = build_argument_parser().parse_args([])
+
+    assert arguments.enable_llm_judge is False

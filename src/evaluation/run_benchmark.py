@@ -12,6 +12,7 @@ from src.evaluation.batch_runner import (
 from src.evaluation.batch_runner import (
     run_benchmark as run_batch_benchmark,
 )
+from src.evaluation.judge import DEFAULT_JUDGE_MODEL
 from src.evaluation.loader import load_benchmark
 from src.evaluation.models import BenchmarkCase
 from src.generation.answerer import (
@@ -61,32 +62,46 @@ def format_batch_summary(
         else "None"
     )
 
-    return "\n".join(
+    lines = [
+        f"Run ID: {summary.run_id}",
+        f"Total cases: {summary.total_cases}",
+        (
+            "Successful cases: "
+            f"{summary.successful_cases}"
+        ),
+        f"Failed cases: {summary.failed_cases}",
+        f"Success rate: {summary.success_rate:.2%}",
+        (
+            "Average retrieval recall: "
+            f"{summary.average_retrieval_recall:.4f}"
+        ),
+        (
+            "Average fact coverage: "
+            f"{summary.average_fact_coverage:.4f}"
+        ),
+        (
+            "Average citation validity: "
+            f"{summary.average_citation_validity:.4f}"
+        ),
+        (
+            "Average overall score: "
+            f"{summary.average_overall_score:.4f}"
+        ),
+    ]
+
+    if summary.average_judge_score is not None:
+        lines.extend(
+            [
+                (
+                    "Average LLM judge score: "
+                    f"{summary.average_judge_score:.4f}"
+                ),
+                f"Judge model: {summary.judge_model}",
+            ]
+        )
+
+    lines.extend(
         [
-            f"Run ID: {summary.run_id}",
-            f"Total cases: {summary.total_cases}",
-            (
-                "Successful cases: "
-                f"{summary.successful_cases}"
-            ),
-            f"Failed cases: {summary.failed_cases}",
-            f"Success rate: {summary.success_rate:.2%}",
-            (
-                "Average retrieval recall: "
-                f"{summary.average_retrieval_recall:.4f}"
-            ),
-            (
-                "Average fact coverage: "
-                f"{summary.average_fact_coverage:.4f}"
-            ),
-            (
-                "Average citation validity: "
-                f"{summary.average_citation_validity:.4f}"
-            ),
-            (
-                "Average overall score: "
-                f"{summary.average_overall_score:.4f}"
-            ),
             (
                 "Average duration: "
                 f"{summary.average_duration_ms:.2f} ms"
@@ -94,6 +109,8 @@ def format_batch_summary(
             f"Failed case IDs: {failed_cases}",
         ]
     )
+
+    return "\n".join(lines)
 
 
 def format_batch_result(
@@ -116,6 +133,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
             "Run the LLM evaluation benchmark and save metrics."
         )
     )
+
     parser.add_argument(
         "--benchmark-path",
         type=Path,
@@ -173,6 +191,18 @@ def build_argument_parser() -> argparse.ArgumentParser:
         default=DEFAULT_MAX_OUTPUT_TOKENS,
         help="Maximum generated tokens per answer.",
     )
+    parser.add_argument(
+        "--enable-llm-judge",
+        action="store_true",
+        help=(
+            "Evaluate generated answers with an LLM judge."
+        ),
+    )
+    parser.add_argument(
+        "--judge-model",
+        default=DEFAULT_JUDGE_MODEL,
+        help="Model used for LLM-as-a-judge evaluation.",
+    )
 
     return parser
 
@@ -197,7 +227,9 @@ def main() -> None:
     )
 
     client = OpenAI(
-        api_key=settings.openai_api_key.get_secret_value()
+        api_key=(
+            settings.openai_api_key.get_secret_value()
+        )
     )
 
     result = run_batch_benchmark(
@@ -211,6 +243,8 @@ def main() -> None:
         generation_model=arguments.generation_model,
         top_k=arguments.top_k,
         max_output_tokens=arguments.max_output_tokens,
+        enable_llm_judge=arguments.enable_llm_judge,
+        judge_model=arguments.judge_model,
     )
 
     print(format_batch_result(result))

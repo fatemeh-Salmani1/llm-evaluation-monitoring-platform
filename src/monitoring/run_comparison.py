@@ -71,16 +71,29 @@ def format_run_comparison(
             "Overall score",
             comparison.overall_score,
         ),
-        format_metric_delta(
-            "Average duration (ms)",
-            comparison.average_duration_ms,
-            precision=2,
-        ),
-        "",
-        f"Improvements: {improvements}",
-        f"Regressions: {regressions}",
-        f"Quality gate: {quality_gate}",
     ]
+
+    if comparison.judge_score is not None:
+        lines.append(
+            format_metric_delta(
+                "LLM judge score",
+                comparison.judge_score,
+            )
+        )
+
+    lines.extend(
+        [
+            format_metric_delta(
+                "Average duration (ms)",
+                comparison.average_duration_ms,
+                precision=2,
+            ),
+            "",
+            f"Improvements: {improvements}",
+            f"Regressions: {regressions}",
+            f"Quality gate: {quality_gate}",
+        ]
+    )
 
     return "\n".join(lines)
 
@@ -94,6 +107,7 @@ def build_argument_parser() -> argparse.ArgumentParser:
             "and detect regressions."
         )
     )
+
     parser.add_argument(
         "baseline_path",
         type=Path,
@@ -125,6 +139,12 @@ def build_argument_parser() -> argparse.ArgumentParser:
         help="Maximum permitted overall-score decrease.",
     )
     parser.add_argument(
+        "--judge-score-drop",
+        type=float,
+        default=DEFAULT_THRESHOLDS.judge_score_drop,
+        help="Maximum permitted LLM judge-score decrease.",
+    )
+    parser.add_argument(
         "--latency-increase-ratio",
         type=float,
         default=(
@@ -140,12 +160,14 @@ def main() -> int:
     """Compare benchmark runs and return a quality-gate code."""
 
     arguments = build_argument_parser().parse_args()
+
     thresholds = ComparisonThresholds(
         success_rate_drop=arguments.success_rate_drop,
         retrieval_recall_drop=(
             arguments.retrieval_recall_drop
         ),
         overall_score_drop=arguments.overall_score_drop,
+        judge_score_drop=arguments.judge_score_drop,
         latency_increase_ratio=(
             arguments.latency_increase_ratio
         ),

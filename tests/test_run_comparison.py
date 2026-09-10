@@ -21,6 +21,7 @@ def create_summary(
     fact_coverage: float = 1.0,
     citation_validity: float = 1.0,
     overall_score: float = 1.0,
+    judge_score: float | None = None,
     duration_ms: float = 1000.0,
 ) -> BatchEvaluationSummary:
     """Create a benchmark summary for comparison tests."""
@@ -55,6 +56,7 @@ def create_summary(
         average_fact_coverage=fact_coverage,
         average_citation_validity=citation_validity,
         average_overall_score=overall_score,
+        average_judge_score=judge_score,
         failed_case_ids=[
             f"eval-{number:04d}"
             for number in range(
@@ -64,6 +66,11 @@ def create_summary(
         ],
         embedding_model="text-embedding-3-small",
         generation_model="gpt-5.6-luna",
+        judge_model=(
+            "gpt-5.6-luna"
+            if judge_score is not None
+            else None
+        ),
         top_k=4,
     )
 
@@ -97,6 +104,7 @@ def test_compare_summaries_identifies_improvements() -> None:
     assert comparison.overall_score.absolute_change == (
         pytest.approx(0.0729)
     )
+    assert comparison.judge_score is None
     assert "retrieval_recall" in comparison.improvements
     assert "fact_coverage" in comparison.improvements
     assert "overall_score" in comparison.improvements
@@ -155,6 +163,69 @@ def test_compare_summaries_allows_changes_within_thresholds() -> None:
 
     assert comparison.has_regression is False
     assert comparison.regressions == []
+
+
+def test_compare_summaries_identifies_judge_improvement() -> None:
+    baseline = create_summary(
+        run_id="baseline-run",
+        judge_score=0.80,
+    )
+    current = create_summary(
+        run_id="current-run",
+        judge_score=0.90,
+    )
+
+    comparison = compare_summaries(
+        baseline=baseline,
+        current=current,
+    )
+
+    assert comparison.judge_score is not None
+    assert comparison.judge_score.absolute_change == (
+        pytest.approx(0.10)
+    )
+    assert "judge_score" in comparison.improvements
+    assert comparison.has_regression is False
+
+
+def test_compare_summaries_identifies_judge_regression() -> None:
+    baseline = create_summary(
+        run_id="baseline-run",
+        judge_score=0.95,
+    )
+    current = create_summary(
+        run_id="current-run",
+        judge_score=0.80,
+    )
+
+    comparison = compare_summaries(
+        baseline=baseline,
+        current=current,
+    )
+
+    assert comparison.judge_score is not None
+    assert "judge_score" in comparison.regressions
+    assert comparison.has_regression is True
+
+
+def test_compare_summaries_skips_unavailable_judge_score() -> None:
+    baseline = create_summary(
+        run_id="baseline-run",
+        judge_score=None,
+    )
+    current = create_summary(
+        run_id="current-run",
+        judge_score=0.90,
+    )
+
+    comparison = compare_summaries(
+        baseline=baseline,
+        current=current,
+    )
+
+    assert comparison.judge_score is None
+    assert "judge_score" not in comparison.regressions
+    assert "judge_score" not in comparison.improvements
 
 
 def test_compare_summary_files_loads_saved_summaries(

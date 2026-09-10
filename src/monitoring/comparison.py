@@ -1,6 +1,11 @@
 from pathlib import Path
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    ValidationError,
+)
 
 from src.evaluation.batch_runner import (
     BatchEvaluationSummary,
@@ -22,6 +27,10 @@ class ComparisonThresholds(BaseModel):
     )
     overall_score_drop: float = Field(
         default=0.02,
+        ge=0.0,
+    )
+    judge_score_drop: float = Field(
+        default=0.05,
         ge=0.0,
     )
     latency_increase_ratio: float = Field(
@@ -52,6 +61,7 @@ class RunComparison(BaseModel):
     fact_coverage: MetricDelta
     citation_validity: MetricDelta
     overall_score: MetricDelta
+    judge_score: MetricDelta | None = None
     average_duration_ms: MetricDelta
     has_regression: bool
     regressions: list[str]
@@ -68,6 +78,21 @@ def calculate_metric_delta(
         baseline=baseline,
         current=current,
         absolute_change=current - baseline,
+    )
+
+
+def calculate_optional_metric_delta(
+    baseline: float | None,
+    current: float | None,
+) -> MetricDelta | None:
+    """Calculate a change only when both values exist."""
+
+    if baseline is None or current is None:
+        return None
+
+    return calculate_metric_delta(
+        baseline=baseline,
+        current=current,
     )
 
 
@@ -122,6 +147,10 @@ def compare_summaries(
         baseline.average_overall_score,
         current.average_overall_score,
     )
+    judge_score = calculate_optional_metric_delta(
+        baseline.average_judge_score,
+        current.average_judge_score,
+    )
     average_duration_ms = calculate_metric_delta(
         baseline.average_duration_ms,
         current.average_duration_ms,
@@ -160,6 +189,15 @@ def compare_summaries(
     elif overall_score.absolute_change > 0:
         improvements.append("overall_score")
 
+    if judge_score is not None:
+        if (
+            judge_score.absolute_change
+            < -resolved_thresholds.judge_score_drop
+        ):
+            regressions.append("judge_score")
+        elif judge_score.absolute_change > 0:
+            improvements.append("judge_score")
+
     latency_limit = baseline.average_duration_ms * (
         1 + resolved_thresholds.latency_increase_ratio
     )
@@ -177,6 +215,7 @@ def compare_summaries(
         fact_coverage=fact_coverage,
         citation_validity=citation_validity,
         overall_score=overall_score,
+        judge_score=judge_score,
         average_duration_ms=average_duration_ms,
         has_regression=bool(regressions),
         regressions=regressions,

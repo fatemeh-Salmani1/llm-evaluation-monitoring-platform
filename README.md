@@ -9,25 +9,15 @@ The project ingests documentation, creates searchable embeddings, retrieves rele
 It supports:
 
 - Document ingestion and processing
-
 - Token-aware Markdown chunking
-
 - OpenAI embedding generation
-
 - Semantic retrieval
-
 - Grounded answer generation
-
 - Source-chunk citations
-
 - Deterministic evaluation metrics
-
 - LLM-as-a-judge evaluation
-
 - Benchmark execution and result storage
-
 - Regression detection and quality gates
-
 - Interactive monitoring and question-answering interfaces
 
 ## Architecture
@@ -70,23 +60,15 @@ The ingestion workflow:
 The retrieval system:
 
 - Splits Markdown using headings and token limits
-
 - Preserves heading paths and source metadata
-
 - Generates embeddings with `text-embedding-3-small`
-
 - Stores embeddings in validated JSONL records
-
 - Uses cosine similarity to rank relevant chunks
-
 - Supports configurable top-k retrieval
 
 The current document collection contains:
-
 - 18 document chunks
-
 - 18 unique embeddings
-
 - 1,536 dimensions per embedding
 
 ### Grounded answer generation
@@ -96,13 +78,9 @@ Questions are answered using only the retrieved documentation.
 The generation workflow:
 
 1. Embeds the userâ€™s question.
-
 2. Retrieves the most relevant chunks.
-
 3. Supplies those chunks to the generation model.
-
 4. Instructs the model not to use outside knowledge.
-
 5. Returns a concise answer with source-chunk citations.
 
 If the retrieved documentation does not contain an answer, the assistant is instructed to say that the available context is insufficient.
@@ -112,22 +90,16 @@ If the retrieved documentation does not contain an answer, the assistant is inst
 The benchmark contains eight questions covering:
 
 - Evaluation concepts
-
 - Data-source configuration
-
 - Test-data uploads
-
 - Graders
-
 - Evaluation runs
-
 - Result analysis
-
 - API usage
 
 Each generated answer is evaluated with deterministic metrics and, optionally, an LLM judge.
 
-#### Deterministic metrics
+### Deterministic metrics
 
 | Metric | Purpose |
 
@@ -146,11 +118,8 @@ Each generated answer is evaluated with deterministic metrics and, optionally, a
 The optional LLM judge evaluates:
 
 - Relevance
-
 - Completeness
-
 - Groundedness
-
 - Clarity
 
 Each dimension is scored from 1 to 5. The result also includes a normalized overall score and a written explanation.
@@ -162,17 +131,11 @@ The LLM judge complements the deterministic checks. For example, it identified a
 Benchmark summaries can be compared to identify changes in:
 
 - Success rate
-
 - Retrieval recall
-
 - Fact coverage
-
 - Citation validity
-
 - Deterministic score
-
 - LLM judge score
-
 - Average response duration
 
 Configurable quality thresholds determine whether a comparison passes or fails. This makes the comparison command suitable for automated release checks and CI workflows.
@@ -206,11 +169,8 @@ An earlier retrieval configuration achieved a recall of `0.8750`. After increasi
 The regression comparison also recorded:
 
 - Retrieval recall improvement: `+0.1250`
-
 - Fact coverage improvement: `+0.0417`
-
 - Overall score improvement: `+0.0729`
-
 - Average latency improvement: `-730.34 ms`
 
 Because model responses can vary, results from future live runs may differ slightly.
@@ -222,17 +182,11 @@ The Streamlit dashboard tracks benchmark quality and performance over time.
 It includes:
 
 - Latest full-benchmark metrics
-
 - Quality trends
-
 - Latency trends
-
 - Run history
-
 - Case-level results
-
 - LLM-judge dimensions
-
 - Judge explanations
 
 ![Evaluation monitoring overview](dashboards/dashboard-overview.png)
@@ -256,13 +210,9 @@ The browser-based assistant provides a simple interface for asking questions abo
 It displays:
 
 - The generated answer
-
 - Source-chunk citations
-
 - The generation model
-
 - Retrieved source content
-
 - A configurable number of sources
 
 ![Documentation question-answering assistant](dashboards/documentation-assistant.png)
@@ -270,29 +220,17 @@ It displays:
 ## Technology stack
 
 - Python 3.12
-
 - OpenAI API
-
 - Pydantic
-
 - Pydantic Settings
-
 - tiktoken
-
 - HTTPX
-
 - pandas
-
 - Plotly
-
 - Streamlit
-
 - pytest
-
 - Ruff
-
 - uv
-
 - GitHub Actions
 
 ## Installation

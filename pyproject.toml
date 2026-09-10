@@ -1,7 +1,7 @@
 [project]
 name = "llm-evaluation-monitoring-platform"
 version = "0.1.0"
-description = "Add your description here"
+description = "A practical platform for testing, comparing, and monitoring grounded LLM applications."
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

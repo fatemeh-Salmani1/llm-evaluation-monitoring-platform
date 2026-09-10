@@ -9,6 +9,37 @@ CHUNK_CITATION_PATTERN = re.compile(
     r"\[([a-z0-9]+(?:-[a-z0-9]+)*-chunk-\d{4})\]"
 )
 
+MIN_FACT_TOKEN_RECALL = 0.6
+
+FACT_STOP_WORDS = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "as",
+        "at",
+        "be",
+        "by",
+        "for",
+        "from",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "to",
+        "was",
+        "were",
+        "whether",
+        "with",
+        "against",
+    }
+)
+
 
 class DeterministicEvaluationResult(BaseModel):
     """Deterministic quality metrics for one benchmark case."""
@@ -37,6 +68,56 @@ def normalize_text(text: str) -> str:
     )
 
     return " ".join(normalized.split())
+
+
+def canonicalize_token(token: str) -> str:
+    """Normalize simple English plural forms."""
+
+    if len(token) > 4 and token.endswith("ies"):
+        return f"{token[:-3]}y"
+
+    if (
+        len(token) > 3
+        and token.endswith("s")
+        and not token.endswith(("ss", "us", "is"))
+    ):
+        return token[:-1]
+
+    return token
+
+
+def extract_fact_tokens(text: str) -> set[str]:
+    """Extract important normalized tokens used for fact matching."""
+
+    return {
+        canonicalize_token(token)
+        for token in normalize_text(text).split()
+        if token not in FACT_STOP_WORDS
+    }
+
+
+def fact_is_supported(
+    fact: str,
+    answer: str,
+) -> bool:
+    """Check whether an answer supports a required fact."""
+
+    normalized_fact = normalize_text(fact)
+    normalized_answer = normalize_text(answer)
+
+    if normalized_fact in normalized_answer:
+        return True
+
+    fact_tokens = extract_fact_tokens(fact)
+
+    if not fact_tokens:
+        return False
+
+    answer_tokens = extract_fact_tokens(answer)
+    matched_tokens = fact_tokens & answer_tokens
+    token_recall = len(matched_tokens) / len(fact_tokens)
+
+    return token_recall >= MIN_FACT_TOKEN_RECALL
 
 
 def extract_chunk_citations(answer: str) -> list[str]:
@@ -77,19 +158,19 @@ def calculate_fact_coverage(
     required_facts: Sequence[str],
     answer: str,
 ) -> tuple[float, list[str], list[str]]:
-    """Measure how many required fact phrases appear in an answer."""
+    """Measure how many required facts are supported by an answer."""
 
     if not required_facts:
         raise ValueError("At least one required fact is needed")
 
-    normalized_answer = normalize_text(answer)
     matched_facts: list[str] = []
     missing_facts: list[str] = []
 
     for fact in required_facts:
-        normalized_fact = normalize_text(fact)
-
-        if normalized_fact in normalized_answer:
+        if fact_is_supported(
+            fact=fact,
+            answer=answer,
+        ):
             matched_facts.append(fact)
         else:
             missing_facts.append(fact)

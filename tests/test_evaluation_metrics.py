@@ -165,3 +165,28 @@ def test_evaluate_deterministically_rejects_empty_answer() -> None:
                 "openai-evals-guide-chunk-0004"
             ],
         )
+
+
+def test_fact_coverage_accepts_paraphrased_wording() -> None:
+    required_facts = [
+        "test model outputs",
+        "style and content criteria",
+        "application performance against expectations",
+    ]
+    answer = (
+        "Evaluations test an LLM application's outputs "
+        "against specified style and content criteria. "
+        "They help determine whether the application "
+        "meets expectations."
+    )
+
+    coverage, matched_facts, missing_facts = (
+        calculate_fact_coverage(
+            required_facts=required_facts,
+            answer=answer,
+        )
+    )
+
+    assert coverage == pytest.approx(1.0)
+    assert matched_facts == required_facts
+    assert missing_facts == []

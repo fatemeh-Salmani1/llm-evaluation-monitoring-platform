@@ -2,9 +2,13 @@
 
 [![Quality checks](https://github.com/fatemeh-Salmani1/llm-evaluation-monitoring-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/fatemeh-Salmani1/llm-evaluation-monitoring-platform/actions/workflows/ci.yml)
 
-## Project overview
+A practical platform for testing, evaluating, and monitoring a retrieval-augmented LLM application.
 
 The project ingests documentation, creates searchable embeddings, retrieves relevant context, generates grounded answers with citations, evaluates answer quality, detects regressions between benchmark runs, and presents the results in an interactive dashboard.
+
+## Project overview
+
+LLM applications can produce fluent answers that are incomplete, unsupported, or based on the wrong context. This project provides a repeatable workflow for measuring those problems instead of relying only on manual testing.
 
 It supports:
 
@@ -44,15 +48,10 @@ flowchart TD
 The ingestion workflow:
 
 - Loads document source configuration
-
 - Downloads Markdown documentation
-
 - Rejects empty or unsuccessful responses
-
 - Cleans the downloaded content
-
 - Records source and processing metadata
-
 - Calculates a SHA-256 checksum for data lineage
 
 ### Retrieval
@@ -67,6 +66,7 @@ The retrieval system:
 - Supports configurable top-k retrieval
 
 The current document collection contains:
+
 - 18 document chunks
 - 18 unique embeddings
 - 1,536 dimensions per embedding
@@ -99,18 +99,13 @@ The benchmark contains eight questions covering:
 
 Each generated answer is evaluated with deterministic metrics and, optionally, an LLM judge.
 
-### Deterministic metrics
+#### Deterministic metrics
 
 | Metric | Purpose |
-
 |---|---|
-
 | Retrieval recall | Measures whether expected source chunks were retrieved |
-
 | Fact coverage | Measures how many required facts appear in the answer |
-
 | Citation validity | Checks whether citations refer to retrieved chunks |
-
 | Overall score | Combines retrieval, factual coverage, and citation quality |
 
 #### LLM-as-a-judge
@@ -145,23 +140,14 @@ Configurable quality thresholds determine whether a comparison passes or fails. 
 A full benchmark run with deterministic and LLM-judge evaluation produced:
 
 | Metric | Result |
-
 |---|---:|
-
 | Successful cases | 8 / 8 |
-
 | Success rate | 100.00% |
-
 | Retrieval recall | 1.0000 |
-
 | Fact coverage | 0.8958 |
-
 | Citation validity | 1.0000 |
-
 | Deterministic score | 0.9740 |
-
 | LLM judge score | 0.9609 |
-
 | Average duration | 6,369 ms |
 
 An earlier retrieval configuration achieved a recall of `0.8750`. After increasing the retrieval depth and improving source selection, recall reached `1.0000`.
@@ -233,6 +219,40 @@ It displays:
 - uv
 - GitHub Actions
 
+## Project structure
+
+```text
+.
+â”œâ”€â”€ .github/
+â”‚   â””â”€â”€ workflows/
+â”‚       â””â”€â”€ ci.yml
+â”œâ”€â”€ dashboards/
+â”‚   â”œâ”€â”€ pages/
+â”‚   â”‚   â””â”€â”€ 1_Ask_the_Documentation.py
+â”‚   â”œâ”€â”€ Monitoring.py
+â”‚   â””â”€â”€ *.png
+â”œâ”€â”€ data/
+â”‚   â”œâ”€â”€ benchmarks/
+â”‚   â”‚   â””â”€â”€ openai_evals.jsonl
+â”‚   â”œâ”€â”€ processed/
+â”‚   â”œâ”€â”€ raw/
+â”‚   â””â”€â”€ sources/
+â”‚       â””â”€â”€ openai_docs.json
+â”œâ”€â”€ src/
+â”‚   â”œâ”€â”€ config/
+â”‚   â”œâ”€â”€ evaluation/
+â”‚   â”œâ”€â”€ generation/
+â”‚   â”œâ”€â”€ ingestion/
+â”‚   â”œâ”€â”€ monitoring/
+â”‚   â””â”€â”€ retrieval/
+â”œâ”€â”€ tests/
+â”œâ”€â”€ .env.example
+â”œâ”€â”€ pyproject.toml
+â””â”€â”€ uv.lock
+```
+
+Generated raw documents, embeddings, and evaluation-run records are excluded from Git because they can be recreated by the pipeline.
+
 ## Installation
 
 ### Prerequisites
@@ -240,9 +260,7 @@ It displays:
 You need:
 
 - Python 3.12 or later
-
 - [uv](https://docs.astral.sh/uv/)
-
 - An OpenAI API key with available API credits
 
 ### Clone the repository
@@ -336,7 +354,6 @@ uv run python -m src.evaluation.run_benchmark \
 Each run creates:
 
 - A JSONL file containing case-level results
-
 - A JSON summary containing aggregate metrics
 
 The files are written to:
@@ -377,7 +394,6 @@ http://localhost:8501
 Use the sidebar to switch between:
 
 - **Monitoring** â€” evaluation results and trends
-
 - **Ask the Documentation** â€” grounded question answering
 
 ## Testing and code quality
@@ -403,13 +419,9 @@ GitHub Actions runs the quality checks automatically for repository changes.
 The workflow:
 
 1. Checks out the repository.
-
 2. Installs Python and uv.
-
 3. Synchronizes locked dependencies.
-
 4. Runs Ruff.
-
 5. Runs the complete pytest suite.
 
 The workflow configuration is stored in `.github/workflows/ci.yml`.
@@ -431,3 +443,32 @@ Every answer retains the IDs of its retrieved chunks. This makes it possible to 
 ### Reproducible benchmark runs
 
 Each benchmark execution receives a unique run ID and produces immutable case-level and summary records. Runs can therefore be inspected and compared without overwriting previous results.
+
+## Current limitations
+
+- The current knowledge base contains one OpenAI documentation guide.
+- Embeddings are stored locally rather than in a production vector database.
+- Deterministic fact matching uses configurable textual matching rules.
+- Live evaluations require API credits.
+- The Streamlit interface is intended for local demonstration rather than authenticated production deployment.
+
+## Possible extensions
+
+- Add more documentation sources
+- Store embeddings in a vector database
+- Add hybrid keyword and semantic retrieval
+- Track token usage and API cost
+- Add prompt and model version tracking
+- Schedule benchmark runs
+- Persist metrics in a database
+- Add alerting for failed quality gates
+- Deploy the dashboard as a hosted application
+
+## Author
+
+**Fatemeh Salmani**
+
+Data Engineer with experience in data science, analytics, machine learning, NLP, cloud data platforms, and LLM applications.
+
+- [GitHub](https://github.com/fatemeh-Salmani1)
+- [Portfolio](https://fatemehsalmani.com)

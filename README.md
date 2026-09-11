@@ -2,27 +2,12 @@
 
 [![Quality checks](https://github.com/fatemeh-Salmani1/llm-evaluation-monitoring-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/fatemeh-Salmani1/llm-evaluation-monitoring-platform/actions/workflows/ci.yml)
 
+## Project overview
+
 A practical platform for testing, evaluating, and monitoring a retrieval-augmented LLM application.
 
 The project ingests documentation, creates searchable embeddings, retrieves relevant context, generates grounded answers with citations, evaluates answer quality, detects regressions between benchmark runs, and presents the results in an interactive dashboard.
 
-## Project overview
-
-LLM applications can produce fluent answers that are incomplete, unsupported, or based on the wrong context. This project provides a repeatable workflow for measuring those problems instead of relying only on manual testing.
-
-It supports:
-
-- Document ingestion and processing
-- Token-aware Markdown chunking
-- OpenAI embedding generation
-- Semantic retrieval
-- Grounded answer generation
-- Source-chunk citations
-- Deterministic evaluation metrics
-- LLM-as-a-judge evaluation
-- Benchmark execution and result storage
-- Regression detection and quality gates
-- Interactive monitoring and question-answering interfaces
 
 ## Architecture
 
@@ -40,6 +25,8 @@ flowchart TD
     I --> J[Regression comparison]
     I --> K[Monitoring dashboard]
 ```
+
+The application currently uses the OpenAI Evals documentation as its knowledge base, but the ingestion and retrieval components are designed so that additional document collections can be added later.
 
 ## Main capabilities
 
@@ -77,7 +64,7 @@ Questions are answered using only the retrieved documentation.
 
 The generation workflow:
 
-1. Embeds the userâ€™s question.
+1. Embeds the user's question.
 2. Retrieves the most relevant chunks.
 3. Supplies those chunks to the generation model.
 4. Instructs the model not to use outside knowledge.
@@ -219,40 +206,6 @@ It displays:
 - uv
 - GitHub Actions
 
-## Project structure
-
-```text
-.
-â”œâ”€â”€ .github/
-â”‚   â””â”€â”€ workflows/
-â”‚       â””â”€â”€ ci.yml
-â”œâ”€â”€ dashboards/
-â”‚   â”œâ”€â”€ pages/
-â”‚   â”‚   â””â”€â”€ 1_Ask_the_Documentation.py
-â”‚   â”œâ”€â”€ Monitoring.py
-â”‚   â””â”€â”€ *.png
-â”œâ”€â”€ data/
-â”‚   â”œâ”€â”€ benchmarks/
-â”‚   â”‚   â””â”€â”€ openai_evals.jsonl
-â”‚   â”œâ”€â”€ processed/
-â”‚   â”œâ”€â”€ raw/
-â”‚   â””â”€â”€ sources/
-â”‚       â””â”€â”€ openai_docs.json
-â”œâ”€â”€ src/
-â”‚   â”œâ”€â”€ config/
-â”‚   â”œâ”€â”€ evaluation/
-â”‚   â”œâ”€â”€ generation/
-â”‚   â”œâ”€â”€ ingestion/
-â”‚   â”œâ”€â”€ monitoring/
-â”‚   â””â”€â”€ retrieval/
-â”œâ”€â”€ tests/
-â”œâ”€â”€ .env.example
-â”œâ”€â”€ pyproject.toml
-â””â”€â”€ uv.lock
-```
-
-Generated raw documents, embeddings, and evaluation-run records are excluded from Git because they can be recreated by the pipeline.
-
 ## Installation
 
 ### Prerequisites
@@ -393,8 +346,8 @@ http://localhost:8501
 
 Use the sidebar to switch between:
 
-- **Monitoring** â€” evaluation results and trends
-- **Ask the Documentation** â€” grounded question answering
+- **Monitoring** - evaluation results and trends
+- **Ask the Documentation** - grounded question answering
 
 ## Testing and code quality
 
@@ -430,7 +383,7 @@ The workflow configuration is stored in `.github/workflows/ci.yml`.
 
 ### JSONL storage
 
-JSONL keeps intermediate artifacts readable and easy to inspect while avoiding the additional infrastructure required by a vector database for this projectâ€™s current scale.
+JSONL keeps intermediate artifacts readable and easy to inspect while avoiding the additional infrastructure required by a vector database for this project's current scale.
 
 ### Separate deterministic and LLM-based evaluation
 
@@ -443,32 +396,3 @@ Every answer retains the IDs of its retrieved chunks. This makes it possible to 
 ### Reproducible benchmark runs
 
 Each benchmark execution receives a unique run ID and produces immutable case-level and summary records. Runs can therefore be inspected and compared without overwriting previous results.
-
-## Current limitations
-
-- The current knowledge base contains one OpenAI documentation guide.
-- Embeddings are stored locally rather than in a production vector database.
-- Deterministic fact matching uses configurable textual matching rules.
-- Live evaluations require API credits.
-- The Streamlit interface is intended for local demonstration rather than authenticated production deployment.
-
-## Possible extensions
-
-- Add more documentation sources
-- Store embeddings in a vector database
-- Add hybrid keyword and semantic retrieval
-- Track token usage and API cost
-- Add prompt and model version tracking
-- Schedule benchmark runs
-- Persist metrics in a database
-- Add alerting for failed quality gates
-- Deploy the dashboard as a hosted application
-
-## Author
-
-**Fatemeh Salmani**
-
-Data Engineer with experience in data science, analytics, machine learning, NLP, cloud data platforms, and LLM applications.
-
-- [GitHub](https://github.com/fatemeh-Salmani1)
-- [Portfolio](https://fatemehsalmani.com)

@@ -26,8 +26,6 @@ flowchart TD
     I --> K[Monitoring dashboard]
 ```
 
-The application currently uses the OpenAI Evals documentation as its knowledge base, but the ingestion and retrieval components are designed so that additional document collections can be added later.
-
 ## Main capabilities
 
 ### Document ingestion
